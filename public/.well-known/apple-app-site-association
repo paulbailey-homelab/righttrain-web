@@ -1,0 +1,16 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["CV8JK3JKZX.com.righttrain.ios"],
+        "components": [
+          {
+            "/": "/j/*",
+            "comment": "Open shared RightTrain journeys in the native app."
+          }
+        ]
+      }
+    ]
+  }
+}
