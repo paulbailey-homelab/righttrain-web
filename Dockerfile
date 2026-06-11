@@ -13,6 +13,8 @@ RUN npm run build
 
 FROM nginx:1.29-alpine
 
+LABEL org.opencontainers.image.source="https://github.com/paulbailey/infra"
+
 RUN mkdir -p /tmp/nginx/client_temp /tmp/nginx/proxy_temp /tmp/nginx/fastcgi_temp /tmp/nginx/uwsgi_temp /tmp/nginx/scgi_temp
 
 COPY nginx.conf /etc/nginx/nginx.conf
