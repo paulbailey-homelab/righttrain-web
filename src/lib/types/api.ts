@@ -12,7 +12,7 @@ export interface ServiceStatus {
   message: string;
   latestKafkaMessageAt?: string;
   kafkaMessageLagSeconds?: number;
-  kafkaMessagesProcessedLast24h: number;
+  kafkaMessagesProcessedLast24h?: number;
 }
 
 export interface JourneySharePosition {

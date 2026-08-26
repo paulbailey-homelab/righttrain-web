@@ -253,11 +253,13 @@
             <strong>{lagText(status.kafkaMessageLagSeconds, status.latestKafkaMessageAt)}</strong>
             <p>{status.latestKafkaMessageAt ? `Latest message ${formatRailDateTime(status.latestKafkaMessageAt)}` : "Waiting for the first live message."}</p>
           </article>
-          <article>
-            <span>Processed in 24 hours</span>
-            <strong>{numberText(status.kafkaMessagesProcessedLast24h)}</strong>
-            <p>Darwin rail updates processed by RightTrain.</p>
-          </article>
+          {#if status.kafkaMessagesProcessedLast24h !== undefined}
+            <article>
+              <span>Processed in 24 hours</span>
+              <strong>{numberText(status.kafkaMessagesProcessedLast24h)}</strong>
+              <p>Darwin rail updates processed by RightTrain.</p>
+            </article>
+          {/if}
         </section>
 
         <footer class="status-meta">
