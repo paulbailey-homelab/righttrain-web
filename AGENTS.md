@@ -18,7 +18,8 @@ helm lint deploy/helm/righttrain-web -f deploy/homelab/values-homelab.yaml
 helm template righttrain-web deploy/helm/righttrain-web -f deploy/homelab/values-homelab.yaml
 ```
 
-There is no unit test suite; CI builds the app and lints/renders the chart.
+There is no unit test suite; CI builds the app, lints/renders the chart and runs
+`scripts/check-config.sh` (AASA file, nginx AASA route, ingress API routing).
 
 ## Deploy Model
 
