@@ -1,0 +1,173 @@
+name: Publish Image
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Optional image version tag to publish alongside latest and sha tags
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/righttrain-web
+
+concurrency:
+  group: "righttrain-web-publish-image"
+  cancel-in-progress: false
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      version_tag: ${{ steps.version.outputs.tag }}
+      version_enabled: ${{ steps.version.outputs.enabled }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Resolve image version tag
+        id: version
+        shell: bash
+        env:
+          VERSION_INPUT: ${{ github.event.inputs.version }}
+        run: |
+          version_input="$VERSION_INPUT"
+          if [[ -n "$version_input" ]]; then
+            version="${version_input#v}"
+          elif [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version=""
+          fi
+
+          echo "tag=$version" >> "$GITHUB_OUTPUT"
+
+          if [[ -n "$version" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=long,prefix=sha-
+            type=raw,value=${{ steps.version.outputs.tag }},enable=${{ steps.version.outputs.enabled }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build and push image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  update-homelab-values:
+    name: Update homelab image tag
+    needs: build-and-push
+    if: ${{ needs.build-and-push.outputs.version_enabled == 'true' && github.event_name == 'push' && github.ref_type == 'tag' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      IMAGE_TAG: ${{ needs.build-and-push.outputs.version_tag }}
+      RELEASE_SHA: ${{ github.sha }}
+      VALUES_FILE: deploy/homelab/values-homelab.yaml
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Ensure tagged commit is on main
+        id: ancestry
+        shell: bash
+        run: |
+          if git cat-file -e "${RELEASE_SHA}^{commit}" 2>/dev/null && git merge-base --is-ancestor "$RELEASE_SHA" HEAD; then
+            echo "deployable=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Tag commit $RELEASE_SHA is not on main; skipping homelab values update."
+            echo "deployable=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update homelab image tag
+        id: bump
+        if: ${{ steps.ancestry.outputs.deployable == 'true' }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          image_tag = os.environ["IMAGE_TAG"]
+          path = Path(os.environ["VALUES_FILE"])
+          output_path = Path(os.environ["GITHUB_OUTPUT"])
+
+          lines = path.read_text().splitlines()
+          changed = False
+          inside_image = False
+
+          for i, line in enumerate(lines):
+              if not line.startswith(" "):
+                  inside_image = line.startswith("image:")
+                  continue
+              if inside_image and line.lstrip().startswith("tag:"):
+                  current = line.split(":", 1)[1].strip().strip('"').strip("'")
+                  if current != image_tag:
+                      prefix = line.split("tag:", 1)[0]
+                      lines[i] = f"{prefix}tag: {image_tag}"
+                      changed = True
+                  break
+
+          if changed:
+              path.write_text("\n".join(lines) + "\n")
+
+          with output_path.open("a", encoding="utf-8") as fh:
+              fh.write(f"changed={'true' if changed else 'false'}\n")
+          PY
+
+      - name: Configure git author
+        if: ${{ steps.ancestry.outputs.deployable == 'true' && steps.bump.outputs.changed == 'true' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit production image update
+        if: ${{ steps.ancestry.outputs.deployable == 'true' && steps.bump.outputs.changed == 'true' }}
+        run: |
+          git add "$VALUES_FILE"
+          git commit -m "Deploy righttrain-web ${IMAGE_TAG}"
+
+      - name: Rebase and push
+        if: ${{ steps.ancestry.outputs.deployable == 'true' && steps.bump.outputs.changed == 'true' }}
+        run: |
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main

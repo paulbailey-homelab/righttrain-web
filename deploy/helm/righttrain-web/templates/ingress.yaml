@@ -1,0 +1,60 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "righttrain-web.fullname" . }}
+  labels:
+    {{- include "righttrain-web.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+  annotations:
+    {{- toYaml .Values.ingress.annotations | nindent 4 }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          {{- range .Values.ingress.apiPaths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType | default "Prefix" }}
+            backend:
+              service:
+                name: {{ $.Values.apiService.name }}
+                port:
+                  number: {{ $.Values.apiService.port }}
+          {{- end }}
+          - path: {{ .Values.ingress.path }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "righttrain-web.fullname" . }}
+                port:
+                  number: 80
+    {{- range .Values.ingress.additionalHosts }}
+    - host: {{ . | quote }}
+      http:
+        paths:
+          {{- range $.Values.ingress.apiPaths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType | default "Prefix" }}
+            backend:
+              service:
+                name: {{ $.Values.apiService.name }}
+                port:
+                  number: {{ $.Values.apiService.port }}
+          {{- end }}
+          - path: {{ $.Values.ingress.path }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "righttrain-web.fullname" $ }}
+                port:
+                  number: 80
+    {{- end }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- toYaml .Values.ingress.tls | nindent 4 }}
+  {{- end }}
+{{- end }}

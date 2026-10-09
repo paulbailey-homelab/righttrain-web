@@ -1,0 +1,89 @@
+nameOverride: ""
+
+replicaCount: 1
+port: 8080
+
+# Runtime configuration injected into the static app at container start
+# (see docker-entrypoint.d/40-runtime-config.sh).
+apiBaseUrl: ""
+publicWebBaseUrl: https://righttrain.app
+appStoreUrl: ""
+
+image:
+  repository: ghcr.io/paulbailey-homelab/righttrain-web
+  tag: ""
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+resources: {}
+
+# The backend API Service that the site's ingresses route API paths to
+# (ingress.apiPaths, publicStatus.ingress.apiPaths). It must exist in the same
+# namespace; it is owned by the righttrain-api chart.
+apiService:
+  name: clearsignal-api
+  port: 80
+
+ingress:
+  enabled: false
+  className: traefik
+  annotations: {}
+  host: ""
+  additionalHosts: []
+  path: /
+  apiPaths:
+    - path: /v1/journey-shares
+      pathType: Prefix
+  tls: []
+
+certificate:
+  enabled: false
+  secretName: righttrain-web-tls
+  extraDnsNames: []
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: letsencrypt-prod
+
+# A second deployment of the same image serving the public status page.
+publicStatus:
+  enabled: false
+  replicaCount: 1
+  apiBaseUrl: ""
+  publicWebBaseUrl: https://righttrain.app
+  appStoreUrl: ""
+  resources: {}
+  ingress:
+    enabled: false
+    className: traefik
+    annotations: {}
+    host: ""
+    frontendPath: /
+    frontendPathType: Prefix
+    apiPaths:
+      - path: /v1/status
+        pathType: Exact
+    tls: []
+  certificate:
+    enabled: false
+    secretName: righttrain-web-status-tls
+    issuerRef:
+      group: cert-manager.io
+      kind: ClusterIssuer
+      name: letsencrypt-prod
+
+podAnnotations: {}
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  runAsNonRoot: true
+  runAsUser: 100
+  runAsGroup: 101
+nodeSelector: {}
+tolerations: []
+affinity: {}

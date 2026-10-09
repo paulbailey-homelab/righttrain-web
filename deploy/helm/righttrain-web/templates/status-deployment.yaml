@@ -1,0 +1,61 @@
+{{- if .Values.publicStatus.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "righttrain-web.fullname" . }}-status
+  labels:
+    {{- include "righttrain-web.labels" . | nindent 4 }}
+    app.kubernetes.io/component: status
+spec:
+  replicas: {{ .Values.publicStatus.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "righttrain-web.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: status
+  template:
+    metadata:
+      labels:
+        {{- include "righttrain-web.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: status
+      annotations:
+        {{- toYaml .Values.podAnnotations | nindent 8 }}
+    spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: web
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          env:
+            - name: API_BASE_URL
+              value: {{ .Values.publicStatus.apiBaseUrl | quote }}
+            - name: PUBLIC_WEB_BASE_URL
+              value: {{ .Values.publicStatus.publicWebBaseUrl | quote }}
+            - name: RIGHTTRAIN_APP_STORE_URL
+              value: {{ .Values.publicStatus.appStoreUrl | quote }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.port }}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          resources:
+            {{- toYaml .Values.publicStatus.resources | nindent 12 }}
+      nodeSelector:
+        {{- toYaml .Values.nodeSelector | nindent 8 }}
+      tolerations:
+        {{- toYaml .Values.tolerations | nindent 8 }}
+      affinity:
+        {{- toYaml .Values.affinity | nindent 8 }}
+{{- end }}

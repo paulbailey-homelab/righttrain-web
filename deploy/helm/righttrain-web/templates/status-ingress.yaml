@@ -1,0 +1,39 @@
+{{- if and .Values.publicStatus.enabled .Values.publicStatus.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "righttrain-web.fullname" . }}-status
+  labels:
+    {{- include "righttrain-web.labels" . | nindent 4 }}
+    app.kubernetes.io/component: status
+  annotations:
+    {{- toYaml .Values.publicStatus.ingress.annotations | nindent 4 }}
+spec:
+  {{- if .Values.publicStatus.ingress.className }}
+  ingressClassName: {{ .Values.publicStatus.ingress.className }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.publicStatus.ingress.host | quote }}
+      http:
+        paths:
+          {{- range .Values.publicStatus.ingress.apiPaths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType | default "Exact" }}
+            backend:
+              service:
+                name: {{ $.Values.apiService.name }}
+                port:
+                  number: {{ $.Values.apiService.port }}
+          {{- end }}
+          - path: {{ .Values.publicStatus.ingress.frontendPath }}
+            pathType: {{ .Values.publicStatus.ingress.frontendPathType }}
+            backend:
+              service:
+                name: {{ include "righttrain-web.fullname" . }}-status
+                port:
+                  number: 80
+  {{- if .Values.publicStatus.ingress.tls }}
+  tls:
+    {{- toYaml .Values.publicStatus.ingress.tls | nindent 4 }}
+  {{- end }}
+{{- end }}

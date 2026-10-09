@@ -1,0 +1,17 @@
+{{- if and .Values.publicStatus.enabled .Values.publicStatus.certificate.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "righttrain-web.fullname" . }}-status-tls
+  labels:
+    {{- include "righttrain-web.labels" . | nindent 4 }}
+    app.kubernetes.io/component: status
+spec:
+  secretName: {{ .Values.publicStatus.certificate.secretName }}
+  issuerRef:
+    name: {{ .Values.publicStatus.certificate.issuerRef.name }}
+    kind: {{ .Values.publicStatus.certificate.issuerRef.kind }}
+    group: {{ .Values.publicStatus.certificate.issuerRef.group }}
+  dnsNames:
+    - {{ .Values.publicStatus.ingress.host | quote }}
+{{- end }}

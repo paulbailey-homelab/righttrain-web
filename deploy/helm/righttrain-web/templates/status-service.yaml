@@ -1,0 +1,18 @@
+{{- if .Values.publicStatus.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "righttrain-web.fullname" . }}-status
+  labels:
+    {{- include "righttrain-web.labels" . | nindent 4 }}
+    app.kubernetes.io/component: status
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "righttrain-web.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: status
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+{{- end }}

@@ -1,0 +1,67 @@
+image:
+  repository: ghcr.io/paulbailey-homelab/righttrain-web
+  tag: 0.1.0
+
+apiBaseUrl: https://righttrain.app
+publicWebBaseUrl: https://righttrain.app
+appStoreUrl: ""
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+ingress:
+  enabled: true
+  className: traefik
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: righttrain.app
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+  host: righttrain.app
+  tls:
+    - hosts:
+        - righttrain.app
+      secretName: righttrain-web-tls
+
+certificate:
+  enabled: true
+  secretName: righttrain-web-tls
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: letsencrypt-prod
+
+publicStatus:
+  enabled: true
+  replicaCount: 1
+  apiBaseUrl: https://status.righttrain.app
+  publicWebBaseUrl: https://righttrain.app
+  appStoreUrl: ""
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  ingress:
+    enabled: true
+    className: traefik
+    annotations:
+      external-dns.alpha.kubernetes.io/hostname: status.righttrain.app
+      traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    host: status.righttrain.app
+    tls:
+      - hosts:
+          - status.righttrain.app
+        secretName: righttrain-web-status-tls
+  certificate:
+    enabled: true
+    secretName: righttrain-web-status-tls
+    issuerRef:
+      group: cert-manager.io
+      kind: ClusterIssuer
+      name: letsencrypt-prod
